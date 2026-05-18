@@ -200,6 +200,17 @@ kubectl version --short
 Запускает контейнеры. Стандарт — **containerd** через CRI
 > Docker как runtime умер с v1.24
 
+```bash
+# Все ноды кластера — версия, CRI, IP
+kubectl get nodes -o wide
+# NAME       STATUS   VERSION   CONTAINER-RUNTIME
+# master-1   Ready    v1.36.0   containerd://2.0.1
+# worker-1   Ready    v1.36.0   containerd://2.0.1
+
+# Компоненты control plane живые
+kubectl get pods -n kube-system
+```
+
 ---
 
 ## Flow: `kubectl apply` → Running pod
@@ -286,6 +297,10 @@ Admission Webhooks
 kubectl logs <pod> --previous
 # Подробно: статус, число рестартов, Events
 kubectl describe pod <pod>
+# Exit code последнего падения
+kubectl get pod <pod> -o jsonpath=\
+  '{.status.containerStatuses[0].lastState.terminated.exitCode}'
+# 137 = OOMKilled  |  1 = ошибка приложения  |  0 = успех
 ```
 
 ---
@@ -526,6 +541,13 @@ tolerations:
   effect: NoSchedule
 ```
 
+```bash
+# Labelы нод — основа для nodeAffinity
+kubectl get nodes --show-labels
+# Taints на конкретной ноде
+kubectl describe node <node> | grep -A5 Taints
+```
+
 ---
 
 <!-- _class: section-title -->
@@ -592,6 +614,13 @@ volumeBindingMode: WaitForFirstConsumer
 **Reclaim Policy:**
 - `Delete` — данные удаляются. Осторожно в production
 - `Retain` — данные сохраняются, PV освобождается вручную
+
+```bash
+# Все PV кластера — статус, reclaim policy, размер
+kubectl get pv
+# Доступные StorageClass
+kubectl get storageclass
+```
 
 ---
 
@@ -688,6 +717,16 @@ kubectl get secret db-creds -o jsonpath='{.data.password}' | base64 -d
 ❌ **Секреты через env** — видны в `kubectl describe pod`, могут утечь в логи
 
 ✅ **Монтировать как volume** — доступно только через файловую систему
+
+```bash
+# Что может делать конкретный ServiceAccount
+kubectl auth can-i list pods \
+  --as=system:serviceaccount:default:default
+# Все RoleBinding в namespace
+kubectl get rolebindings -n <ns> -o wide
+# Все ClusterRoleBinding — кто имеет широкие права
+kubectl get clusterrolebindings -o wide | grep -v system:
+```
 
 ---
 
@@ -934,6 +973,13 @@ Roль `ansible-cri-containerd` — обновить **до** запуска п�
 - **StatefulSet + RWO** — drain может зависнуть если том не переподнять на другой ноде
 - **Истёкшие сертификаты** — сначала `kubeadm certs renew all`, потом плейбук
 - **Версионный перекос** — apiserver первым, гарантирует структура плейбука
+
+```bash
+# Проверить версии нод после обновления
+kubectl get nodes -o wide
+# Когда обновлялась каждая нода
+kubectl describe node <node> | grep -E 'KubeletVersion|CreationTimestamp'
+```
 
 ---
 
