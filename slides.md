@@ -147,44 +147,55 @@ kubectl version --short
 
 ---
 
-## Как мы доставляем приложения: Helm + Ansible
+## Helm — пакетный менеджер Kubernetes
 
-- Чарты хранятся **локально** — нет зависимости от внешних репозиториев
-- Values **на каждый окружение** — dev, ft, int, lt, pre, prom
-- Деплой через **Ansible** — `play-infra-new.yml` + роль `ansible-k8s-helm-chart`
+- **Chart** — пакет шаблонов Kubernetes-манифестов
+- **Values** — параметры под окружение, переопределяют chart без изменения шаблонов
+- **Release** — установленный экземпляр chart в кластере
+- **Repository** — хранилище чартов
 
 ```
-infra/
-├── charts/                    ← чарты локально
-│   ├── ingress-nginx/
-│   ├── kube-prometheus-stack/
-│   ├── fluent-bit/
-│   └── ... (~30 чартов)
-├── dev/                       ← values под окружение
-│   ├── ingress-nginx.values.yaml
-│   └── kube-prometheus-stack.values.yaml
-└── prom1/
-    └── ingress-nginx.values.yaml
+chart/
+├── Chart.yaml       ← метаданные: имя, версия, зависимости
+├── values.yaml      ← значения по умолчанию
+└── templates/       ← Kubernetes YAML с шаблонами Go
+    ├── deployment.yaml
+    ├── service.yaml
+    └── ingress.yaml
 ```
 
 ---
 
-## Один чарт — много окружений
+## Helm — основные команды
 
 ```bash
-# play-infra-new.yml запускается с профайлем окружения
-ansible-playbook play-infra-new.yml \
-  -i inventories/prom1/inventory-kube-prom1.yml
+# Установить / обновить release
+helm upgrade --install my-app ./chart \
+  -f values.prod.yaml \
+  -n production
+
+# Все release в кластере
+helm list -A
+
+# История ревизий и откат
+helm history my-app -n production
+helm rollback my-app 2 -n production
 ```
 
-Роль `ansible-k8s-helm-chart` под капотом:
-- `helm upgrade --install` с нужными values
-- Идемпотентно — можно запускать повторно
-- Чарт + values в Git — весь стек под версионным контролем
+> `upgrade --install` — идемпотентная операция: создаст если нет, обновит если есть
+
+---
+
+## Helm в production: паттерны
+
+- **Один chart — много окружений**: `values.dev.yaml`, `values.prod.yaml`
+- **Chart в Git** — весь стек под версионным контролем
+- **Автоматизация деплоя** — через Ansible или CI/CD
+- **Локальное хранилище** — без зависимости от внешних репозиториев
 
 ```bash
-# Что установлено в кластере
-helm list -A
+# Что реально будет применено — превью перед деплоем
+helm template my-app ./chart -f values.prod.yaml
 ```
 
 ---
