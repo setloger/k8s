@@ -147,6 +147,48 @@ kubectl version --short
 
 ---
 
+## Как мы доставляем приложения: Helm + Ansible
+
+- Чарты хранятся **локально** — нет зависимости от внешних репозиториев
+- Values **на каждый окружение** — dev, ft, int, lt, pre, prom
+- Деплой через **Ansible** — `play-infra-new.yml` + роль `ansible-k8s-helm-chart`
+
+```
+infra/
+├── charts/                    ← чарты локально
+│   ├── ingress-nginx/
+│   ├── kube-prometheus-stack/
+│   ├── fluent-bit/
+│   └── ... (~30 чартов)
+├── dev/                       ← values под окружение
+│   ├── ingress-nginx.values.yaml
+│   └── kube-prometheus-stack.values.yaml
+└── prom1/
+    └── ingress-nginx.values.yaml
+```
+
+---
+
+## Один чарт — много окружений
+
+```bash
+# play-infra-new.yml запускается с профайлем окружения
+ansible-playbook play-infra-new.yml \
+  -i inventories/prom1/inventory-kube-prom1.yml
+```
+
+Роль `ansible-k8s-helm-chart` под капотом:
+- `helm upgrade --install` с нужными values
+- Идемпотентно — можно запускать повторно
+- Чарт + values в Git — весь стек под версионным контролем
+
+```bash
+# Что установлено в кластере
+helm list -A
+```
+
+---
+
 <!-- _class: section-title -->
 
 # 2. Архитектура кластера
